@@ -557,11 +557,26 @@ export default ${ident};
 /* -------------------------------------------------------------- filesystem */
 
 export function templateDir(): string {
-  const dir =
-    process.env.SALON_TEMPLATE_DIR ?? path.resolve(process.cwd(), "..", "salon-template");
-  if (!fs.existsSync(path.join(dir, "src", "salons", "index.ts"))) {
+  const marker = path.join("src", "salons", "index.ts");
+
+  const candidates: string[] = [];
+  if (process.env.SALON_TEMPLATE_DIR) {
+    candidates.push(path.resolve(process.env.SALON_TEMPLATE_DIR));
+  } else {
+    // The template sits beside this project, but a built server can run from a
+    // directory that is nowhere near it — walk up from the cwd looking for it.
+    for (let dir = process.cwd(); ; ) {
+      candidates.push(path.join(dir, "salon-template"));
+      const up = path.dirname(dir);
+      if (up === dir) break;
+      dir = up;
+    }
+  }
+
+  const dir = candidates.find((c) => fs.existsSync(path.join(c, marker)));
+  if (!dir) {
     throw new Error(
-      `salon-template not found at ${dir} — set SALON_TEMPLATE_DIR if it lives elsewhere.`,
+      `salon-template not found — set SALON_TEMPLATE_DIR to its path. Tried: ${candidates.join(", ")}`,
     );
   }
   return dir;
